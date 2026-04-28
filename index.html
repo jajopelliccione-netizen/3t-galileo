@@ -75,17 +75,20 @@
     --radius: 18px;
   }
 
+html { background: #080810; }
+
 body {
-background: var(–bg);
+/* background-color esplicito + background-image separato: fix per Safari */
+background-color: #080810;
+background-image:
+radial-gradient(ellipse 70% 50% at 0% 0%,    rgba(124,92,252,0.28) 0%, transparent 55%),
+radial-gradient(ellipse 50% 40% at 100% 100%, rgba(252,92,125,0.22) 0%, transparent 55%),
+radial-gradient(ellipse 40% 30% at 50% 50%,   rgba(80,40,180,0.12) 0%, transparent 70%);
+background-attachment: fixed;
 color: var(–text);
 font-family: ‘Inter’, sans-serif;
 min-height: 100vh;
 padding-bottom: 80px;
-/* Sfondo con blob colorati più visibili */
-background-image:
-radial-gradient(ellipse 70% 50% at 0% 0%,   rgba(124,92,252,0.25) 0%, transparent 55%),
-radial-gradient(ellipse 50% 40% at 100% 100%, rgba(252,92,125,0.20) 0%, transparent 55%),
-radial-gradient(ellipse 40% 30% at 50% 50%,  rgba(80,40,180,0.10) 0%, transparent 70%);
 }
 
 /* ── HEADER ── */
@@ -400,7 +403,9 @@ to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 <header class="header">
   <div class="logo">3T Galileo</div>
-  <div class="pill" id="countPill"><strong id="photoCount">0</strong> foto</div>
+  <div class="header-right">
+    <div class="pill" id="countPill"><strong id="photoCount">0</strong> foto</div>
+  </div>
 </header>
 
 <!-- UPLOAD -->
@@ -450,10 +455,14 @@ to   { opacity: 1; transform: translateX(-50%) translateY(0); }
       <button class="btn-zip" id="btnZip" onclick="dlAll()">⬇️ Scarica tutto</button>
     </div>
   </div>
-  <div id="loadingState">⏳ Caricamento foto...</div>
+  <div id="loadingState">
+    <div class="spinner-ring"></div>
+    <span>Connessione a Firebase...</span>
+  </div>
   <div id="emptyState" class="empty" style="display:none">
     <div class="empty-icon">🌌</div>
-    <div class="empty-title">Nessuna foto ancora — inizia tu!</div>
+    <div class="empty-title">Nessuna foto ancora</div>
+    <div class="empty-sub">Sii il primo a condividere qualcosa!</div>
   </div>
   <div id="feed" class="hidden"></div>
   <div id="grid" class="hidden"></div>
