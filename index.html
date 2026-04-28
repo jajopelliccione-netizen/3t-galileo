@@ -416,8 +416,80 @@ white-space: nowrap; animation: toastIn 0.22s ease;
 from { opacity: 0; transform: translateX(-50%) translateY(10px); }
 to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
-</style>
+/* ── PREVIEW CARD ── */
+.preview-card {
+background: #111118;
+border-radius: 18px;
+overflow: hidden;
+box-shadow: 0 0 0 1px rgba(124,92,252,0.35), 0 8px 32px rgba(0,0,0,0.4);
+}
 
+.preview-thumbs {
+display: grid;
+grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+gap: 3px;
+max-height: 320px;
+overflow: hidden;
+}
+
+.preview-thumb {
+aspect-ratio: 1;
+object-fit: cover;
+display: block;
+width: 100%;
+background: #1a1a24;
+}
+
+/* Se c’è solo 1 foto, mostrala grande */
+.preview-thumbs.single .preview-thumb {
+grid-column: 1 / -1;
+max-height: 300px;
+aspect-ratio: unset;
+object-fit: contain;
+background: #0c0c14;
+}
+
+.preview-caption-row {
+display: flex; align-items: center; gap: 12px;
+padding: 14px 18px;
+border-top: 1px solid rgba(255,255,255,0.06);
+background: rgba(124,92,252,0.04);
+}
+
+.preview-caption-input {
+flex: 1; background: transparent; border: none; outline: none;
+font-family: ‘Inter’, sans-serif; font-size: 0.95rem;
+color: #ffffff; caret-color: #7c5cfc;
+}
+.preview-caption-input::placeholder { color: rgba(160,160,200,0.7); }
+
+.preview-actions {
+display: flex; gap: 10px; padding: 14px 18px;
+border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+.btn-cancel {
+flex: 1; background: rgba(255,255,255,0.06);
+border: 1px solid rgba(255,255,255,0.1); color: #a0a0c8;
+padding: 12px; border-radius: 12px;
+font-family: ‘Inter’, sans-serif; font-weight: 700; font-size: 0.9rem;
+cursor: pointer; transition: all 0.15s;
+}
+.btn-cancel:hover { background: rgba(255,255,255,0.1); }
+
+.btn-publish {
+flex: 2; background: linear-gradient(135deg, #7c5cfc, #fc5c7d);
+border: none; color: #ffffff;
+padding: 12px; border-radius: 12px;
+font-family: ‘Inter’, sans-serif; font-weight: 700; font-size: 0.95rem;
+cursor: pointer; transition: all 0.15s;
+box-shadow: 0 4px 20px rgba(124,92,252,0.4);
+letter-spacing: 0.3px;
+}
+.btn-publish:hover { box-shadow: 0 6px 24px rgba(124,92,252,0.6); transform: translateY(-1px); }
+.btn-publish:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+</style>
 </head>
 <body>
 
@@ -434,22 +506,17 @@ to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 <div class="upload-section">
   <div class="section-label">Condividi qualcosa</div>
-  <div class="upload-card">
-    <div class="caption-row">
-      <div class="caption-avatar">📸</div>
-      <input id="captionInput" type="text" maxlength="120"
-        placeholder="Cosa stai condividendo? (es. gita, intervallo, prof assente...)" />
-    </div>
+
+  <!-- STEP 1: Scegli foto (visibile di default) -->
+
+  <div class="upload-card" id="stepPick">
     <div class="dropzone" id="dropzone">
-      <!-- Input galleria / desktop -->
-      <input type="file" id="fileInput" multiple accept="image/*"
-        onclick="this.value=''" />
+      <input type="file" id="fileInput" multiple accept="image/*" onclick="this.value=''" />
       <div class="dz-icon" id="dzIcon">🖼️</div>
-      <div class="dz-label" id="dzLabel">Carica le tue foto</div>
-      <div class="dz-sub">Clicca per scegliere dalla libreria</div>
-      <button class="dz-btn">Sfoglia libreria</button>
+      <div class="dz-label" id="dzLabel">Scegli dalla libreria</div>
+      <div class="dz-sub">Clicca per aprire le foto</div>
+      <button class="dz-btn">Sfoglia foto</button>
     </div>
-    <!-- Bottone fotocamera dedicato per iOS -->
     <div class="camera-row">
       <span class="camera-label">oppure</span>
       <button class="camera-btn" onclick="document.getElementById('cameraInput').click()">
@@ -457,6 +524,26 @@ to   { opacity: 1; transform: translateX(-50%) translateY(0); }
       </button>
       <input type="file" id="cameraInput" accept="image/*" capture="environment"
         style="display:none" onclick="this.value=''" />
+    </div>
+  </div>
+
+  <!-- STEP 2: Anteprima + commento (nascosto finché non scegli) -->
+
+  <div class="preview-card" id="stepPreview" style="display:none">
+    <!-- Griglia anteprime -->
+    <div class="preview-thumbs" id="previewThumbs"></div>
+    <!-- Input commento -->
+    <div class="preview-caption-row">
+      <div class="caption-avatar">💬</div>
+      <input id="captionInput" type="text" maxlength="120" class="preview-caption-input"
+        placeholder="Aggiungi un commento... (facoltativo)" />
+    </div>
+    <!-- Azioni -->
+    <div class="preview-actions">
+      <button class="btn-cancel" onclick="resetUpload()">✕ Annulla</button>
+      <button class="btn-publish" id="btnPublish" onclick="publishPhotos()">
+        🚀 Pubblica
+      </button>
     </div>
   </div>
 </div>
@@ -558,85 +645,125 @@ let currentView = "feed";
 
 // ═══════════════════════════════════════════════════
 //  ASCOLTO IN TEMPO REALE (onSnapshot)
-//  Ogni volta che Firestore cambia (upload o delete
-//  da qualsiasi browser) questa funzione si richiama
-//  automaticamente e aggiorna la galleria.
+//  Timeout 5s: se Firebase non risponde nasconde lo spinner
 // ═══════════════════════════════════════════════════
+const loadingTimeout = setTimeout(() => {
+  document.getElementById("loadingState").style.display = "none";
+  document.getElementById("emptyState").style.display = photos.length ? "none" : "block";
+}, 5000);
+
 db.collection(COL)
   .orderBy("ts", "desc")
   .onSnapshot(snapshot => {
+    clearTimeout(loadingTimeout);
     photos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     render();
     document.getElementById("loadingState").style.display = "none";
   }, err => {
+    clearTimeout(loadingTimeout);
     console.error(err);
-    document.getElementById("loadingState").textContent = "❌ Errore connessione Firebase";
+    document.getElementById("loadingState").innerHTML =
+      '<span style="color:#fc5c7d">❌ Errore connessione — ricarica la pagina</span>';
   });
 
 // ═══════════════════════════════════════════════════
-//  UPLOAD
-//  1. Carica il file su Firebase Storage
-//  2. Prende l'URL pubblico permanente (downloadURL)
-//  3. Salva metadati su Firestore
+//  STATO UPLOAD
 // ═══════════════════════════════════════════════════
-async function handleFiles(files) {
+let pendingFiles = [];   // file in attesa di essere pubblicati
+
+// ═══════════════════════════════════════════════════
+//  STEP 1 → mostra anteprima dopo selezione file
+// ═══════════════════════════════════════════════════
+function showPreview(files) {
   const valid = Array.from(files).filter(f => f.type.startsWith("image/"));
   if (!valid.length) { toast("⚠️ Solo immagini!"); return; }
+  pendingFiles = valid;
+
+  const thumbs = document.getElementById("previewThumbs");
+  thumbs.innerHTML = "";
+  thumbs.className = "preview-thumbs" + (valid.length === 1 ? " single" : "");
+
+  // Crea anteprima locale per ogni file (senza upload ancora)
+  valid.forEach(file => {
+    const img = document.createElement("img");
+    img.className = "preview-thumb";
+    img.src = URL.createObjectURL(file);
+    thumbs.appendChild(img);
+  });
+
+  document.getElementById("stepPick").style.display = "none";
+  document.getElementById("stepPreview").style.display = "block";
+  document.getElementById("captionInput").focus();
+}
+
+// ═══════════════════════════════════════════════════
+//  STEP 2 → pubblica (upload reale)
+// ═══════════════════════════════════════════════════
+async function publishPhotos() {
+  if (!pendingFiles.length) return;
+  const btn = document.getElementById("btnPublish");
+  btn.disabled = true;
+  btn.textContent = "⏳ Pubblicazione...";
 
   const captionText = document.getElementById("captionInput").value.trim();
   showProgress(true);
 
-  for (let i = 0; i < valid.length; i++) {
-    const file = valid[i];
-
-    // Aggiorna barra progresso
-    setProgress(Math.round((i / valid.length) * 100),
-      `Caricamento ${i + 1} di ${valid.length}...`);
-
+  for (let i = 0; i < pendingFiles.length; i++) {
+    const file = pendingFiles[i];
+    setProgress(Math.round((i / pendingFiles.length) * 100),
+      `Caricamento ${i + 1} di ${pendingFiles.length}...`);
     try {
-      // — STEP A: crea un riferimento unico in Storage
       const fileName = `${Date.now()}-${file.name}`;
       const ref = storage.ref(`${FOLDER}/${fileName}`);
-
-      // — STEP B: carica il file con monitoraggio progresso
       const uploadTask = ref.put(file);
 
       await new Promise((resolve, reject) => {
         uploadTask.on("state_changed",
           snap => {
-            // progresso del singolo file
             const pct = Math.round((snap.bytesTransferred / snap.totalBytes) * 100);
-            setProgress(pct, `Caricamento foto ${i + 1}/${valid.length} — ${pct}%`);
+            setProgress(pct, `Caricamento foto ${i + 1}/${pendingFiles.length} — ${pct}%`);
           },
-          reject,
-          resolve
+          reject, resolve
         );
       });
 
-      // — STEP C: prendi l'URL pubblico permanente
       const downloadURL = await ref.getDownloadURL();
-
-      // — STEP D: salva i metadati su Firestore
       await db.collection(COL).add({
-        name:        file.name,
-        caption:     captionText || null,
-        url:         downloadURL,   // URL permanente dell'immagine
-        storagePath: `${FOLDER}/${fileName}`, // serve per cancellare
-        ts:          firebase.firestore.FieldValue.serverTimestamp()
+        name: file.name,
+        caption: captionText || null,
+        url: downloadURL,
+        storagePath: `${FOLDER}/${fileName}`,
+        ts: firebase.firestore.FieldValue.serverTimestamp()
       });
-
     } catch (err) {
       console.error("Upload error:", err);
       toast("❌ Errore: " + (err.message || "riprova"));
     }
   }
 
-  setProgress(100, "Completato!");
+  setProgress(100, "Pubblicato! ✅");
   setTimeout(() => {
     showProgress(false);
-    document.getElementById("captionInput").value = "";
-    toast(`✅ ${valid.length} foto caricata${valid.length > 1 ? "e" : ""}!`);
+    resetUpload();
+    toast(`✅ ${pendingFiles.length} foto pubblicata${pendingFiles.length > 1 ? "e" : ""}!`);
+    pendingFiles = [];
   }, 600);
+}
+
+// ═══════════════════════════════════════════════════
+//  ANNULLA — torna al picker
+// ═══════════════════════════════════════════════════
+function resetUpload() {
+  pendingFiles = [];
+  document.getElementById("stepPreview").style.display = "none";
+  document.getElementById("stepPick").style.display = "block";
+  document.getElementById("captionInput").value = "";
+  document.getElementById("btnPublish").disabled = false;
+  document.getElementById("btnPublish").textContent = "🚀 Pubblica";
+  document.getElementById("fileInput").value = "";
+  document.getElementById("cameraInput").value = "";
+  // Libera object URLs
+  document.querySelectorAll(".preview-thumb").forEach(img => URL.revokeObjectURL(img.src));
 }
 
 // ═══════════════════════════════════════════════════
