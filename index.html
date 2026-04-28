@@ -5,6 +5,61 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>3T Galileo</title>
+
+<!-- PWA / Safari home screen -->
+
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="3T Galileo" />
+<meta name="theme-color" content="#0c0c10" />
+<link rel="apple-touch-icon" id="appIcon" />
+
+<!-- Genera l'icona 180×180 via canvas al caricamento -->
+
+<script>
+(function() {
+  const SIZE = 180;
+  const c = document.createElement("canvas");
+  c.width = c.height = SIZE;
+  const ctx = c.getContext("2d");
+
+  // — Sfondo: gradiente viola → rosa —
+  const grad = ctx.createLinearGradient(0, 0, SIZE, SIZE);
+  grad.addColorStop(0, "#4f2fff");
+  grad.addColorStop(1, "#fc5c7d");
+  ctx.fillStyle = grad;
+  // Angoli arrotondati (r=36)
+  const r = 36;
+  ctx.beginPath();
+  ctx.moveTo(r, 0);
+  ctx.lineTo(SIZE - r, 0);
+  ctx.quadraticCurveTo(SIZE, 0, SIZE, r);
+  ctx.lineTo(SIZE, SIZE - r);
+  ctx.quadraticCurveTo(SIZE, SIZE, SIZE - r, SIZE);
+  ctx.lineTo(r, SIZE);
+  ctx.quadraticCurveTo(0, SIZE, 0, SIZE - r);
+  ctx.lineTo(0, r);
+  ctx.quadraticCurveTo(0, 0, r, 0);
+  ctx.closePath();
+  ctx.fill();
+
+  // — Emoji fotocamera piccola in alto —
+  ctx.font = "44px serif";
+  ctx.textAlign = "center";
+  ctx.fillText("📷", SIZE / 2, 72);
+
+  // — Testo "3T" grande e bold —
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 68px -apple-system, Arial, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("3T", SIZE / 2, 128);
+
+  // Assegna come apple-touch-icon
+  document.getElementById("appIcon").href = c.toDataURL("image/png");
+})();
+</script>
+
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
