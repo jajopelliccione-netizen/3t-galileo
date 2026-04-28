@@ -161,8 +161,8 @@ box-shadow: 0 0 0 3px rgba(124,92,252,0.2), 0 4px 12px rgba(124,92,252,0.3);
 }
 #captionInput {
 flex: 1; background: transparent; border: none; outline: none;
-font-family: ‘Inter’, sans-serif; font-size: 0.95rem; color: var(–text);
-caret-color: var(–accent);
+font-family: ‘Inter’, sans-serif; font-size: 0.95rem; color: #ffffff;
+caret-color: #7c5cfc;
 }
 #captionInput::placeholder { color: rgba(160,160,200,0.8); }
 
@@ -199,11 +199,33 @@ box-shadow: 0 4px 16px rgba(124,92,252,0.2);
 .dz-btn {
 margin-top: 4px;
 background: linear-gradient(135deg, #7c5cfc, #a855f7);
-color: #fff; border: none; padding: 10px 26px; border-radius: 12px;
+color: #ffffff; border: none; padding: 10px 26px; border-radius: 12px;
 font-family: ‘Inter’, sans-serif; font-weight: 700; font-size: 0.88rem;
 pointer-events: none;
 box-shadow: 0 4px 20px rgba(124,92,252,0.45);
 letter-spacing: 0.2px;
+}
+
+/* Riga fotocamera dedicata iOS */
+.camera-row {
+display: flex; align-items: center; justify-content: center; gap: 12px;
+padding: 14px 20px 18px;
+border-top: 1px solid rgba(255,255,255,0.06);
+}
+.camera-label { font-size: 0.78rem; color: #a0a0c8; font-style: italic; }
+.camera-btn {
+background: rgba(252,92,125,0.15);
+border: 1px solid rgba(252,92,125,0.4);
+color: #ffb0c0;
+padding: 10px 22px; border-radius: 12px;
+font-family: ‘Inter’, sans-serif; font-weight: 700; font-size: 0.88rem;
+cursor: pointer; transition: all 0.15s;
+letter-spacing: 0.2px;
+}
+.camera-btn:hover, .camera-btn:active {
+background: rgba(252,92,125,0.28);
+border-color: rgba(252,92,125,0.7);
+box-shadow: 0 4px 16px rgba(252,92,125,0.3);
 }
 
 /* ── PROGRESS ── */
@@ -287,7 +309,7 @@ background: linear-gradient(135deg, #7c5cfc, #fc5c7d);
 display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0;
 box-shadow: 0 0 0 2px rgba(124,92,252,0.3);
 }
-.post-caption { font-size: 0.92rem; font-weight: 600; color: var(–text); line-height: 1.35; }
+.post-caption { font-size: 0.92rem; font-weight: 600; color: #ffffff; line-height: 1.35; }
 .post-time {
 font-size: 0.7rem; color: #a0a0c8; margin-top: 3px;
 display: flex; align-items: center; gap: 4px;
@@ -419,11 +441,22 @@ to   { opacity: 1; transform: translateX(-50%) translateY(0); }
         placeholder="Cosa stai condividendo? (es. gita, intervallo, prof assente...)" />
     </div>
     <div class="dropzone" id="dropzone">
-      <input type="file" id="fileInput" multiple accept="image/*" />
+      <!-- Input galleria / desktop -->
+      <input type="file" id="fileInput" multiple accept="image/*"
+        onclick="this.value=''" />
       <div class="dz-icon" id="dzIcon">🖼️</div>
       <div class="dz-label" id="dzLabel">Carica le tue foto</div>
-      <div class="dz-sub">Trascina qui oppure clicca — JPG, PNG, HEIC</div>
-      <button class="dz-btn">Sfoglia file</button>
+      <div class="dz-sub">Clicca per scegliere dalla libreria</div>
+      <button class="dz-btn">Sfoglia libreria</button>
+    </div>
+    <!-- Bottone fotocamera dedicato per iOS -->
+    <div class="camera-row">
+      <span class="camera-label">oppure</span>
+      <button class="camera-btn" onclick="document.getElementById('cameraInput').click()">
+        📷 Scatta una foto
+      </button>
+      <input type="file" id="cameraInput" accept="image/*" capture="environment"
+        style="display:none" onclick="this.value=''" />
     </div>
   </div>
 </div>
@@ -593,8 +626,8 @@ async function handleFiles(files) {
       });
 
     } catch (err) {
-      console.error(err);
-      toast("❌ Errore upload: " + file.name);
+      console.error("Upload error:", err);
+      toast("❌ Errore: " + (err.message || "riprova"));
     }
   }
 
@@ -653,7 +686,11 @@ dz.addEventListener("drop", e => {
   document.getElementById("dzLabel").textContent = "Carica le tue foto";
   handleFiles(e.dataTransfer.files);
 });
-fi.addEventListener("change", () => handleFiles(fi.files));
+fi.addEventListener("change", () => { if (fi.files && fi.files.length) handleFiles(fi.files); });
+
+// Input fotocamera dedicato (iOS)
+const ci = document.getElementById("cameraInput");
+ci.addEventListener("change", () => { if (ci.files && ci.files.length) handleFiles(ci.files); });
 
 // ═══════════════════════════════════════════════════
 //  PROGRESSO
