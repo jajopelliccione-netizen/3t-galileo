@@ -704,89 +704,89 @@ function resetUpload() {
   showProgress(false);
 }
 
+// ─── COMPRIMI IMMAGINE (canvas) ─────────────────────
+function compressImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Lettura file fallita"));
+    reader.onload = e => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("Immagine non valida"));
+      img.onload = () => {
+        const MAX = 1200;
+        let w = img.width, h = img.height;
+        if (w > MAX || h > MAX) {
+          if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+          else       { w = Math.round(w * MAX / h); h = MAX; }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", 0.82));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 // ─── PUBBLICA (step 2) ──────────────────────────────
 async function publishPhotos() {
-  const filesToUpload = [...pendingFiles]; // copia prima di qualsiasi reset
+  const filesToUpload = [...pendingFiles];
   if (!filesToUpload.length) { toast("⚠️ Nessuna foto selezionata"); return; }
 
   const btn = document.getElementById("btnPublish");
   btn.disabled    = true;
   btn.textContent = "⏳ Caricamento...";
-
   const captionText = document.getElementById("captionInput").value.trim();
   showProgress(true);
-
   let uploaded = 0;
 
-  for (let i = 0; i < filesToUpload.length; i++) {
-    const file = filesToUpload[i];
-    setProgress(0, `Foto ${i + 1} di ${filesToUpload.length}...`);
+  try {
+    for (let i = 0; i < filesToUpload.length; i++) {
+      const file = filesToUpload[i];
+      setProgress(20, `Compressione foto ${i+1}/${filesToUpload.length}...`);
 
-    try {
-      // 1. Carica su Storage
-      const fileName = Date.now() + "-" + file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const ref = storage.ref(FOLDER + "/" + fileName);
+      // 1. Comprimi nel browser via canvas (niente Storage, niente CORS)
+      const dataUrl = await compressImage(file);
+      setProgress(70, "Salvataggio su Firestore...");
 
-      await new Promise((resolve, reject) => {
-        const task = ref.put(file);
-        task.on("state_changed",
-          snap => {
-            const pct = Math.round(snap.bytesTransferred / snap.totalBytes * 100);
-            setProgress(pct, `Caricamento ${pct}%...`);
-          },
-          err => reject(err),
-          () => resolve()
-        );
-      });
-
-      // 2. Prendi URL
-      const url = await ref.getDownloadURL();
-
-      // 3. Salva su Firestore
+      // 2. Salva base64 direttamente in Firestore
       await db.collection(COL).add({
-        name:        file.name,
-        caption:     captionText || null,
-        url:         url,
-        storagePath: FOLDER + "/" + fileName,
-        ts:          firebase.firestore.FieldValue.serverTimestamp()
+        name:    file.name || ("foto_" + Date.now() + ".jpg"),
+        caption: captionText || null,
+        url:     dataUrl,
+        ts:      firebase.firestore.FieldValue.serverTimestamp()
       });
 
       uploaded++;
-
-    } catch (err) {
-      console.error("Upload fallito:", err);
-      toast("❌ " + (err.message || "Errore upload"), 5000);
+      setProgress(100, "✅ Pubblicata!");
     }
-  }
 
-  setProgress(100, "Fatto!");
-
-  // Aggiorna gallery manualmente (non aspettare solo onSnapshot)
-  try {
+    // Ricarica gallery subito
     const snap = await db.collection(COL).orderBy("ts", "desc").get();
     photos = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     render();
-  } catch(e) { /* onSnapshot aggiornerà comunque */ }
-
-  // Reset UI
-  resetUpload();
-
-  if (uploaded > 0) {
     toast("✅ " + uploaded + (uploaded === 1 ? " foto pubblicata!" : " foto pubblicate!"));
+
+  } catch (err) {
+    console.error(err);
+    toast("❌ Errore: " + (err.message || "riprova"), 8000);
+  } finally {
+    resetUpload();
   }
 }
 
 // ─── ELIMINA ────────────────────────────────────────
 async function confirmDelete(id) {
   if (!confirm("Eliminare questa foto?")) return;
-  const photo = photos.find(p => p.id === id);
-  if (!photo) return;
   try {
-    if (photo.storagePath) await storage.ref(photo.storagePath).delete();
     await db.collection(COL).doc(id).delete();
+    photos = photos.filter(p => p.id !== id);
+    render();
     toast("🗑️ Foto eliminata");
   } catch (err) {
-    toast("❌ Errore eliminazione: " + err.message);
+    toast("❌ Errore: " + err.message);
   }
 }
 
