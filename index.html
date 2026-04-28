@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>3T Galileo</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0c0c10; --surface: #13131a; --surface2: #1c1c26;
+    --border: rgba(255,255,255,0.07); --accent: #7c5cfc; --accent2: #fc5c7d;
+    --text: #f0f0f8; --muted: #6b6b80; --radius: 16px;
+  }
+  body {
+    background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif;
+    min-height: 100vh; padding-bottom: 60px;
+    background-image:
+      radial-gradient(ellipse 80% 40% at 10% -10%, rgba(124,92,252,0.15) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 90% 100%, rgba(252,92,125,0.1) 0%, transparent 60%);
+  }
+
+/* ── HEADER ── */
+.header {
+display: flex; align-items: center; justify-content: space-between;
+padding: 20px 32px; border-bottom: 1px solid var(–border);
+backdrop-filter: blur(12px); background: rgba(12,12,16,0.75);
+position: sticky; top: 0; z-index: 100;
+}
+.logo {
+font-family: ‘Syne’, sans-serif; font-size: 1.5rem; font-weight: 800;
+background: linear-gradient(90deg, #a78bfa, #fc5c7d);
+-webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.pill {
+background: var(–surface2); border: 1px solid var(–border);
+color: var(–muted); padding: 6px 14px; border-radius: 99px;
+font-size: 0.8rem; font-weight: 600; display: none;
+}
+.pill strong { color: var(–text); }
+
+/* ── UPLOAD ── */
+.upload-section { max-width: 720px; margin: 40px auto 0; padding: 0 24px; }
+.section-label {
+font-family: ‘Syne’, sans-serif; font-size: 0.7rem; font-weight: 700;
+letter-spacing: 2px; text-transform: uppercase; color: var(–muted); margin-bottom: 16px;
+}
+.upload-card {
+background: var(–surface); border: 1px solid var(–border);
+border-radius: var(–radius); overflow: hidden;
+}
+.caption-row {
+display: flex; align-items: center; gap: 12px;
+padding: 16px 20px; border-bottom: 1px solid var(–border);
+}
+.caption-avatar {
+width: 36px; height: 36px; border-radius: 50%;
+background: linear-gradient(135deg, var(–accent), var(–accent2));
+flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 1rem;
+}
+#captionInput {
+flex: 1; background: transparent; border: none; outline: none;
+font-family: ‘Inter’, sans-serif; font-size: 0.95rem;
+color: var(–text); caret-color: var(–accent);
+}
+#captionInput::placeholder { color: var(–muted); }
+.dropzone {
+position: relative; display: flex; flex-direction: column;
+align-items: center; justify-content: center; gap: 10px;
+padding: 38px 24px; cursor: pointer; transition: background 0.2s;
+}
+.dropzone:hover, .dropzone.drag { background: rgba(124,92,252,0.06); }
+.dropzone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.dz-icon {
+width: 52px; height: 52px; border-radius: 14px;
+background: var(–surface2); border: 1px solid var(–border);
+display: flex; align-items: center; justify-content: center;
+font-size: 1.5rem; transition: transform 0.2s; pointer-events: none;
+}
+.dropzone:hover .dz-icon { transform: scale(1.08); }
+.dz-label { font-size: 0.92rem; font-weight: 600; color: var(–text); pointer-events: none; }
+.dz-sub { font-size: 0.78rem; color: var(–muted); pointer-events: none; }
+.dz-btn {
+margin-top: 4px; background: linear-gradient(135deg, var(–accent), #a855f7);
+color: #fff; border: none; padding: 9px 22px; border-radius: 10px;
+font-family: ‘Inter’, sans-serif; font-weight: 600; font-size: 0.85rem;
+pointer-events: none; box-shadow: 0 4px 16px rgba(124,92,252,0.35);
+}
+
+/* ── PROGRESS ── */
+.progress-wrap { max-width: 720px; margin: 16px auto 0; padding: 0 24px; display: none; }
+.progress-card { background: var(–surface); border: 1px solid var(–border); border-radius: 12px; padding: 14px 18px; }
+.progress-label { font-size: 0.8rem; color: var(–muted); margin-bottom: 10px; display: flex; justify-content: space-between; }
+.progress-track { height: 4px; background: var(–surface2); border-radius: 4px; overflow: hidden; }
+.progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(–accent), var(–accent2)); border-radius: 4px; transition: width 0.2s; }
+
+/* ── GALLERY ── */
+.gallery-section { max-width: 720px; margin: 40px auto; padding: 0 24px; }
+.gallery-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.gallery-header-right { display: flex; gap: 10px; align-items: center; }
+.btn-zip {
+display: inline-flex; align-items: center; gap: 7px;
+background: var(–surface2); border: 1px solid var(–border); color: var(–text);
+padding: 8px 18px; border-radius: 10px; font-family: ‘Inter’, sans-serif;
+font-weight: 600; font-size: 0.82rem; cursor: pointer;
+transition: background 0.15s, border-color 0.15s;
+}
+.btn-zip:hover { background: var(–surface); border-color: rgba(124,92,252,0.5); color: #a78bfa; }
+.btn-zip:disabled { opacity: 0.4; cursor: not-allowed; }
+.view-toggle {
+display: flex; background: var(–surface2);
+border: 1px solid var(–border); border-radius: 10px; overflow: hidden;
+}
+.vt-btn { padding: 7px 13px; background: transparent; border: none; color: var(–muted); cursor: pointer; font-size: 0.85rem; transition: background 0.15s, color 0.15s; }
+.vt-btn.active { background: rgba(124,92,252,0.2); color: #a78bfa; }
+
+/* ── FEED ── */
+#feed { display: flex; flex-direction: column; gap: 16px; }
+#feed.hidden { display: none; }
+.post-card { background: var(–surface); border: 1px solid var(–border); border-radius: var(–radius); overflow: hidden; transition: border-color 0.2s; }
+.post-card:hover { border-color: rgba(124,92,252,0.3); }
+.post-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; }
+.post-meta { display: flex; align-items: center; gap: 10px; }
+.post-avatar {
+width: 34px; height: 34px; border-radius: 50%;
+background: linear-gradient(135deg, #7c5cfc, #fc5c7d);
+display: flex; align-items: center; justify-content: center; font-size: 0.95rem; flex-shrink: 0;
+}
+.post-caption { font-size: 0.9rem; font-weight: 600; color: var(–text); line-height: 1.3; }
+.post-time { font-size: 0.72rem; color: var(–muted); margin-top: 2px; }
+.post-actions { display: flex; gap: 6px; }
+.icon-btn {
+background: var(–surface2); border: 1px solid var(–border); border-radius: 8px;
+width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+font-size: 0.85rem; cursor: pointer; transition: background 0.15s, border-color 0.15s;
+}
+.icon-btn:hover { background: rgba(124,92,252,0.15); border-color: rgba(124,92,252,0.5); }
+.icon-btn.del:hover { background: rgba(252,92,125,0.15); border-color: rgba(252,92,125,0.5); }
+.post-img { width: 100%; display: block; max-height: 520px; object-fit: cover; cursor: zoom-in; }
+.post-filename { padding: 10px 18px; font-size: 0.75rem; color: var(–muted); border-top: 1px solid var(–border); }
+
+/* ── GRID ── */
+#grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+#grid.hidden { display: none; }
+.grid-card { aspect-ratio: 1; border-radius: 12px; overflow: hidden; position: relative; cursor: zoom-in; background: var(–surface); }
+.grid-card img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.3s; }
+.grid-card:hover img { transform: scale(1.05); }
+.grid-overlay {
+position: absolute; inset: 0;
+background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 50%);
+opacity: 0; transition: opacity 0.2s;
+display: flex; align-items: flex-end; padding: 10px; pointer-events: none;
+}
+.grid-card:hover .grid-overlay { opacity: 1; }
+.grid-caption { font-size: 0.75rem; font-weight: 600; color: #fff; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.grid-btns { position: absolute; top: 8px; right: 8px; display: flex; gap: 5px; opacity: 0; transition: opacity 0.2s; }
+.grid-card:hover .grid-btns { opacity: 1; }
+.mini-btn { width: 28px; height: 28px; background: rgba(0,0,0,0.6); backdrop-filter: blur(6px); border: none; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; cursor: pointer; color: #fff; transition: background 0.15s; }
+.mini-btn:hover { background: rgba(124,92,252,0.8); }
+.mini-btn.del:hover { background: rgba(252,92,125,0.8); }
+
+/* ── EMPTY / LOADING ── */
+.empty { text-align: center; padding: 70px 20px; }
+.empty-icon { font-size: 3.5rem; margin-bottom: 14px; opacity: 0.4; }
+.empty-title { font-family: ‘Syne’, sans-serif; font-size: 1.1rem; color: var(–muted); }
+#loadingState { text-align: center; padding: 70px 20px; color: var(–muted); font-size: 0.9rem; }
+
+/* ── LIGHTBOX ── */
+#lightbox {
+display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 300;
+align-items: center; justify-content: center; flex-direction: column;
+padding: 24px; backdrop-filter: blur(8px);
+}
+#lightbox.open { display: flex; animation: fadeIn 0.18s ease; }
+@keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+#lbImg { max-width: 94vw; max-height: 80vh; border-radius: 12px; object-fit: contain; box-shadow: 0 30px 80px rgba(0,0,0,0.6); }
+#lbCaption { margin-top: 16px; color: rgba(255,255,255,0.7); font-size: 0.9rem; max-width: 500px; text-align: center; }
+#lbClose {
+position: fixed; top: 18px; right: 22px;
+background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15);
+color: #fff; font-size: 1.2rem; border-radius: 10px;
+width: 38px; height: 38px; cursor: pointer;
+display: flex; align-items: center; justify-content: center; backdrop-filter: blur(6px);
+}
+#lbClose:hover { background: rgba(255,255,255,0.2); }
+
+/* ── TOAST ── */
+#toast {
+display: none; position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+background: var(–surface); border: 1px solid var(–border); color: var(–text);
+padding: 12px 22px; border-radius: 12px; font-size: 0.88rem; font-weight: 600;
+z-index: 500; backdrop-filter: blur(12px); box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+white-space: nowrap;
+}
+</style>
+
+</head>
+<body>
+
+<!-- HEADER -->
+
+<header class="header">
+  <div class="logo">3T Galileo</div>
+  <div class="pill" id="countPill"><strong id="photoCount">0</strong> foto</div>
+</header>
+
+<!-- UPLOAD -->
+
+<div class="upload-section">
+  <div class="section-label">Condividi qualcosa</div>
+  <div class="upload-card">
+    <div class="caption-row">
+      <div class="caption-avatar">📸</div>
+      <input id="captionInput" type="text" maxlength="120"
+        placeholder="Cosa stai condividendo? (es. gita, intervallo, prof assente...)" />
+    </div>
+    <div class="dropzone" id="dropzone">
+      <input type="file" id="fileInput" multiple accept="image/*" />
+      <div class="dz-icon" id="dzIcon">🖼️</div>
+      <div class="dz-label" id="dzLabel">Carica le tue foto</div>
+      <div class="dz-sub">Trascina qui oppure clicca — JPG, PNG, HEIC</div>
+      <button class="dz-btn">Sfoglia file</button>
+    </div>
+  </div>
+</div>
+
+<!-- PROGRESS -->
+
+<div class="progress-wrap" id="progressWrap">
+  <div class="progress-card">
+    <div class="progress-label">
+      <span id="progressLabel">Caricamento in corso...</span>
+      <span id="progressPct">0%</span>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+  </div>
+</div>
+
+<!-- GALLERY -->
+
+<div class="gallery-section">
+  <div class="gallery-header">
+    <div class="section-label" style="margin-bottom:0">La galleria della classe</div>
+    <div class="gallery-header-right" id="galleryControls" style="display:none">
+      <div class="view-toggle">
+        <button class="vt-btn active" id="btnFeed" onclick="setView('feed')">☰</button>
+        <button class="vt-btn" id="btnGrid" onclick="setView('grid')">▦</button>
+      </div>
+      <button class="btn-zip" id="btnZip" onclick="dlAll()">⬇️ Scarica tutto</button>
+    </div>
+  </div>
+  <div id="loadingState">⏳ Caricamento foto...</div>
+  <div id="emptyState" class="empty" style="display:none">
+    <div class="empty-icon">🌌</div>
+    <div class="empty-title">Nessuna foto ancora — inizia tu!</div>
+  </div>
+  <div id="feed" class="hidden"></div>
+  <div id="grid" class="hidden"></div>
+</div>
+
+<!-- LIGHTBOX -->
+
+<div id="lightbox" onclick="closeLightbox(event)">
+  <button id="lbClose" onclick="closeLightbox()">✕</button>
+  <img id="lbImg" src="" alt="" />
+  <div id="lbCaption"></div>
+</div>
+
+<!-- TOAST -->
+
+<div id="toast"></div>
+
+<!-- ═══════════════════════════════════════════════════
+     FIREBASE — SDK compat (funziona con tag script)
+════════════════════════════════════════════════════ -->
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  CONFIGURAZIONE FIREBASE
+// ═══════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey:            "AIzaSyC92cyoD2ajXVA83opnuDGIDMjNMZkZnTA",
+  authDomain:        "t-galileo.firebaseapp.com",
+  projectId:         "t-galileo",
+  storageBucket:     "t-galileo.firebasestorage.app",
+  messagingSenderId: "535697851728",
+  appId:             "1:535697851728:web:7ebc3432a710243d849855"
+};
+
+firebase.initializeApp(firebaseConfig);
+
+// Shortcut per Firestore e Storage
+const db      = firebase.firestore();
+const storage = firebase.storage();
+
+// Collection Firestore dove salviamo i metadati
+const COL = "foto3tgalileo";
+
+// Cartella in Firebase Storage dove salviamo i file
+const FOLDER = "foto3tgalileo";
+
+// ═══════════════════════════════════════════════════
+//  STATO LOCALE
+// ═══════════════════════════════════════════════════
+let photos      = [];   // array di oggetti foto in memoria
+let currentView = "feed";
+
+// ═══════════════════════════════════════════════════
+//  ASCOLTO IN TEMPO REALE (onSnapshot)
+//  Ogni volta che Firestore cambia (upload o delete
+//  da qualsiasi browser) questa funzione si richiama
+//  automaticamente e aggiorna la galleria.
+// ═══════════════════════════════════════════════════
+db.collection(COL)
+  .orderBy("ts", "desc")
+  .onSnapshot(snapshot => {
+    photos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    render();
+    document.getElementById("loadingState").style.display = "none";
+  }, err => {
+    console.error(err);
+    document.getElementById("loadingState").textContent = "❌ Errore connessione Firebase";
+  });
+
+// ═══════════════════════════════════════════════════
+//  UPLOAD
+//  1. Carica il file su Firebase Storage
+//  2. Prende l'URL pubblico permanente (downloadURL)
+//  3. Salva metadati su Firestore
+// ═══════════════════════════════════════════════════
+async function handleFiles(files) {
+  const valid = Array.from(files).filter(f => f.type.startsWith("image/"));
+  if (!valid.length) { toast("⚠️ Solo immagini!"); return; }
+
+  const captionText = document.getElementById("captionInput").value.trim();
+  showProgress(true);
+
+  for (let i = 0; i < valid.length; i++) {
+    const file = valid[i];
+
+    // Aggiorna barra progresso
+    setProgress(Math.round((i / valid.length) * 100),
+      `Caricamento ${i + 1} di ${valid.length}...`);
+
+    try {
+      // — STEP A: crea un riferimento unico in Storage
+      const fileName = `${Date.now()}-${file.name}`;
+      const ref = storage.ref(`${FOLDER}/${fileName}`);
+
+      // — STEP B: carica il file con monitoraggio progresso
+      const uploadTask = ref.put(file);
+
+      await new Promise((resolve, reject) => {
+        uploadTask.on("state_changed",
+          snap => {
+            // progresso del singolo file
+            const pct = Math.round((snap.bytesTransferred / snap.totalBytes) * 100);
+            setProgress(pct, `Caricamento foto ${i + 1}/${valid.length} — ${pct}%`);
+          },
+          reject,
+          resolve
+        );
+      });
+
+      // — STEP C: prendi l'URL pubblico permanente
+      const downloadURL = await ref.getDownloadURL();
+
+      // — STEP D: salva i metadati su Firestore
+      await db.collection(COL).add({
+        name:        file.name,
+        caption:     captionText || null,
+        url:         downloadURL,   // URL permanente dell'immagine
+        storagePath: `${FOLDER}/${fileName}`, // serve per cancellare
+        ts:          firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+    } catch (err) {
+      console.error(err);
+      toast("❌ Errore upload: " + file.name);
+    }
+  }
+
+  setProgress(100, "Completato!");
+  setTimeout(() => {
+    showProgress(false);
+    document.getElementById("captionInput").value = "";
+    toast(`✅ ${valid.length} foto caricata${valid.length > 1 ? "e" : ""}!`);
+  }, 600);
+}
+
+// ═══════════════════════════════════════════════════
+//  ELIMINA
+//  1. Cancella il file da Firebase Storage
+//  2. Cancella il documento da Firestore
+// ═══════════════════════════════════════════════════
+async function confirmDelete(id) {
+  if (!confirm("Eliminare questa foto?")) return;
+  const photo = photos.find(p => p.id === id);
+  if (!photo) return;
+  try {
+    // Cancella da Storage (se abbiamo il path)
+    if (photo.storagePath) {
+      await storage.ref(photo.storagePath).delete();
+    }
+    // Cancella da Firestore
+    await db.collection(COL).doc(id).delete();
+    toast("🗑️ Foto eliminata");
+  } catch (err) {
+    console.error(err);
+    toast("❌ Errore eliminazione");
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  DRAG & DROP
+// ═══════════════════════════════════════════════════
+const dz = document.getElementById("dropzone");
+const fi = document.getElementById("fileInput");
+
+dz.addEventListener("dragover", e => {
+  e.preventDefault();
+  dz.classList.add("drag");
+  document.getElementById("dzIcon").textContent = "📂";
+  document.getElementById("dzLabel").textContent = "Lascia le foto qui!";
+});
+dz.addEventListener("dragleave", () => {
+  dz.classList.remove("drag");
+  document.getElementById("dzIcon").textContent = "🖼️";
+  document.getElementById("dzLabel").textContent = "Carica le tue foto";
+});
+dz.addEventListener("drop", e => {
+  e.preventDefault();
+  dz.classList.remove("drag");
+  document.getElementById("dzIcon").textContent = "🖼️";
+  document.getElementById("dzLabel").textContent = "Carica le tue foto";
+  handleFiles(e.dataTransfer.files);
+});
+fi.addEventListener("change", () => handleFiles(fi.files));
+
+// ═══════════════════════════════════════════════════
+//  PROGRESSO
+// ═══════════════════════════════════════════════════
+function showProgress(v) {
+  document.getElementById("progressWrap").style.display = v ? "block" : "none";
+}
+function setProgress(p, label) {
+  document.getElementById("progressFill").style.width = p + "%";
+  document.getElementById("progressPct").textContent = p + "%";
+  if (label) document.getElementById("progressLabel").textContent = label;
+}
+
+// ═══════════════════════════════════════════════════
+//  RENDER  (ricostruisce feed e griglia)
+// ═══════════════════════════════════════════════════
+function timeAgo(ts) {
+  if (!ts) return "adesso";
+  const d = Date.now() - ts.toMillis();
+  if (d < 60000)    return "adesso";
+  if (d < 3600000)  return Math.floor(d / 60000) + " min fa";
+  if (d < 86400000) return Math.floor(d / 3600000) + " ore fa";
+  return Math.floor(d / 86400000) + " giorni fa";
+}
+
+function esc(str) {
+  return String(str || "")
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function render() {
+  const pill     = document.getElementById("countPill");
+  const empty    = document.getElementById("emptyState");
+  const controls = document.getElementById("galleryControls");
+  const feedEl   = document.getElementById("feed");
+  const gridEl   = document.getElementById("grid");
+
+  document.getElementById("photoCount").textContent = photos.length;
+  pill.style.display     = "flex";
+  empty.style.display    = photos.length ? "none" : "block";
+  controls.style.display = photos.length ? "flex" : "none";
+  feedEl.classList.toggle("hidden", currentView !== "feed");
+  gridEl.classList.toggle("hidden", currentView !== "grid");
+
+  // — FEED —
+  feedEl.innerHTML = photos.map(p => `
+    <div class="post-card">
+      <div class="post-header">
+        <div class="post-meta">
+          <div class="post-avatar">📸</div>
+          <div>
+            <div class="post-caption">${esc(p.caption || "Nessuna descrizione")}</div>
+            <div class="post-time">${timeAgo(p.ts)}</div>
+          </div>
+        </div>
+        <div class="post-actions">
+          <button class="icon-btn" title="Scarica" onclick="dlSingle('${p.id}')">⬇️</button>
+          <button class="icon-btn del" title="Elimina" onclick="confirmDelete('${p.id}')">🗑️</button>
+        </div>
+      </div>
+      <img class="post-img" src="${esc(p.url)}" alt="" loading="lazy"
+           onclick="openLightbox('${p.id}')" />
+      <div class="post-filename">${esc(p.name)}</div>
+    </div>
+  `).join("");
+
+  // — GRID —
+  gridEl.innerHTML = photos.map(p => `
+    <div class="grid-card" onclick="openLightbox('${p.id}')">
+      <img src="${esc(p.url)}" alt="" loading="lazy" />
+      <div class="grid-overlay">
+        ${p.caption ? `<div class="grid-caption">${esc(p.caption)}</div>` : ""}
+      </div>
+      <div class="grid-btns" onclick="event.stopPropagation()">
+        <button class="mini-btn" onclick="dlSingle('${p.id}')">⬇️</button>
+        <button class="mini-btn del" onclick="confirmDelete('${p.id}')">🗑️</button>
+      </div>
+    </div>
+  `).join("");
+}
+
+// ═══════════════════════════════════════════════════
+//  VISTA TOGGLE
+// ═══════════════════════════════════════════════════
+function setView(v) {
+  currentView = v;
+  document.getElementById("feed").classList.toggle("hidden", v !== "feed");
+  document.getElementById("grid").classList.toggle("hidden", v !== "grid");
+  document.getElementById("btnFeed").classList.toggle("active", v === "feed");
+  document.getElementById("btnGrid").classList.toggle("active", v === "grid");
+}
+
+// ═══════════════════════════════════════════════════
+//  DOWNLOAD SINGOLO
+//  Usa fetch per scaricare il file come blob,
+//  poi lo forza come download (evita apertura nel browser)
+// ═══════════════════════════════════════════════════
+async function dlSingle(id) {
+  const p = photos.find(x => x.id === id);
+  if (!p) return;
+  try {
+    const resp = await fetch(p.url);
+    const blob = await resp.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = p.name;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  } catch {
+    // fallback: apri in nuova tab
+    window.open(p.url, "_blank");
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  DOWNLOAD TUTTO (ZIP)
+//  Scarica ogni immagine dall'URL Firebase Storage,
+//  la impacchetta in uno ZIP con JSZip
+// ═══════════════════════════════════════════════════
+async function dlAll() {
+  if (!photos.length) return;
+  document.getElementById("btnZip").disabled = true;
+  toast("📦 Creando ZIP...");
+  try {
+    const zip = new JSZip();
+    for (const p of photos) {
+      const resp = await fetch(p.url);
+      const blob = await resp.blob();
+      const ext  = blob.type.split("/")[1] || "jpg";
+      const name = p.name.includes(".") ? p.name : `${p.name}.${ext}`;
+      zip.file(name, blob);
+    }
+    const blob = await zip.generateAsync({ type: "blob" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "foto_3T_Galileo.zip";
+    a.click();
+    toast(`📥 ${photos.length} foto scaricate!`);
+  } catch (err) {
+    console.error(err);
+    toast("❌ Errore ZIP");
+  }
+  document.getElementById("btnZip").disabled = false;
+}
+
+// ═══════════════════════════════════════════════════
+//  LIGHTBOX
+// ═══════════════════════════════════════════════════
+function openLightbox(id) {
+  const p = photos.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById("lbImg").src = p.url;
+  document.getElementById("lbCaption").textContent = p.caption ? `"${p.caption}"` : "";
+  document.getElementById("lightbox").classList.add("open");
+  document.body.style.overflow = "hidden";
+}
+function closeLightbox(e) {
+  if (e && e.target !== document.getElementById("lightbox") &&
+           e.target !== document.getElementById("lbClose")) return;
+  document.getElementById("lightbox").classList.remove("open");
+  document.getElementById("lbImg").src = "";
+  document.body.style.overflow = "";
+}
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") document.getElementById("lightbox").classList.remove("open");
+});
+
+// ═══════════════════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════════════════
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.style.display = "block";
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.style.display = "none"; }, 2800);
+}
+</script>
+
+</body>
+</html>
