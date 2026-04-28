@@ -613,9 +613,7 @@ letter-spacing: 0.3px;
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
 <script>
-// ═══════════════════════════════════════════════════
-//  CONFIGURAZIONE FIREBASE
-// ═══════════════════════════════════════════════════
+// ─── FIREBASE CONFIG ────────────────────────────────
 const firebaseConfig = {
   apiKey:            "AIzaSyC92cyoD2ajXVA83opnuDGIDMjNMZkZnTA",
   authDomain:        "t-galileo.firebaseapp.com",
@@ -626,64 +624,56 @@ const firebaseConfig = {
 };
 
 firebase.initializeApp(firebaseConfig);
-
-// Shortcut per Firestore e Storage
 const db      = firebase.firestore();
 const storage = firebase.storage();
+const COL     = "foto3tgalileo";
+const FOLDER  = "foto3tgalileo";
 
-// Collection Firestore dove salviamo i metadati
-const COL = "foto3tgalileo";
-
-// Cartella in Firebase Storage dove salviamo i file
-const FOLDER = "foto3tgalileo";
-
-// ═══════════════════════════════════════════════════
-//  STATO LOCALE
-// ═══════════════════════════════════════════════════
-let photos      = [];   // array di oggetti foto in memoria
+// ─── STATO ──────────────────────────────────────────
+let photos      = [];
 let currentView = "feed";
+let pendingFiles = [];
 
-// ═══════════════════════════════════════════════════
-//  ASCOLTO IN TEMPO REALE (onSnapshot)
-//  Timeout 5s: se Firebase non risponde nasconde lo spinner
-// ═══════════════════════════════════════════════════
+// ─── TOAST ──────────────────────────────────────────
+let toastTimer;
+function toast(msg, duration) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.style.display = "block";
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.style.display = "none"; }, duration || 3000);
+}
+
+// ─── FIRESTORE REALTIME ─────────────────────────────
+// Timeout: se non risponde in 6s nasconde lo spinner
 const loadingTimeout = setTimeout(() => {
   document.getElementById("loadingState").style.display = "none";
-  document.getElementById("emptyState").style.display = photos.length ? "none" : "block";
-}, 5000);
+  document.getElementById("emptyState").style.display  = "block";
+}, 6000);
 
-db.collection(COL)
-  .orderBy("ts", "desc")
-  .onSnapshot(snapshot => {
+db.collection(COL).orderBy("ts", "desc").onSnapshot(
+  snapshot => {
     clearTimeout(loadingTimeout);
     photos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    render();
     document.getElementById("loadingState").style.display = "none";
-  }, err => {
+    render();
+  },
+  err => {
     clearTimeout(loadingTimeout);
-    console.error(err);
     document.getElementById("loadingState").innerHTML =
-      '<span style="color:#fc5c7d">❌ Errore connessione — ricarica la pagina</span>';
-  });
+      '<span style="color:#fc5c7d;font-size:0.9rem">❌ Errore Firebase — ricarica la pagina</span>';
+  }
+);
 
-// ═══════════════════════════════════════════════════
-//  STATO UPLOAD
-// ═══════════════════════════════════════════════════
-let pendingFiles = [];   // file in attesa di essere pubblicati
-
-// ═══════════════════════════════════════════════════
-//  STEP 1 → mostra anteprima dopo selezione file
-// ═══════════════════════════════════════════════════
+// ─── PREVIEW (step 1) ───────────────────────────────
 function showPreview(files) {
   const valid = Array.from(files).filter(f => f.type.startsWith("image/"));
-  if (!valid.length) { toast("⚠️ Solo immagini!"); return; }
+  if (!valid.length) { toast("⚠️ Scegli almeno un'immagine"); return; }
   pendingFiles = valid;
 
   const thumbs = document.getElementById("previewThumbs");
   thumbs.innerHTML = "";
   thumbs.className = "preview-thumbs" + (valid.length === 1 ? " single" : "");
-
-  // Crea anteprima locale per ogni file (senza upload ancora)
   valid.forEach(file => {
     const img = document.createElement("img");
     img.className = "preview-thumb";
@@ -691,149 +681,154 @@ function showPreview(files) {
     thumbs.appendChild(img);
   });
 
-  document.getElementById("stepPick").style.display = "none";
+  document.getElementById("stepPick").style.display    = "none";
   document.getElementById("stepPreview").style.display = "block";
-  document.getElementById("captionInput").focus();
+  // Su iOS, focus su input testo causa lo scroll — meglio non forzarlo
 }
 
-// ═══════════════════════════════════════════════════
-//  STEP 2 → pubblica (upload reale)
-// ═══════════════════════════════════════════════════
-async function publishPhotos() {
-  if (!pendingFiles.length) return;
+// ─── ANNULLA ────────────────────────────────────────
+function resetUpload() {
+  // Libera object URLs prima di svuotare
+  document.querySelectorAll(".preview-thumb").forEach(img => {
+    URL.revokeObjectURL(img.src);
+  });
+  pendingFiles = [];
+  document.getElementById("stepPreview").style.display = "none";
+  document.getElementById("stepPick").style.display    = "block";
+  document.getElementById("captionInput").value        = "";
   const btn = document.getElementById("btnPublish");
-  btn.disabled = true;
-  btn.textContent = "⏳ Pubblicazione...";
+  btn.disabled    = false;
+  btn.textContent = "🚀 Pubblica";
+  document.getElementById("fileInput").value   = "";
+  document.getElementById("cameraInput").value = "";
+  showProgress(false);
+}
+
+// ─── PUBBLICA (step 2) ──────────────────────────────
+async function publishPhotos() {
+  const filesToUpload = [...pendingFiles]; // copia prima di qualsiasi reset
+  if (!filesToUpload.length) { toast("⚠️ Nessuna foto selezionata"); return; }
+
+  const btn = document.getElementById("btnPublish");
+  btn.disabled    = true;
+  btn.textContent = "⏳ Caricamento...";
 
   const captionText = document.getElementById("captionInput").value.trim();
   showProgress(true);
 
-  for (let i = 0; i < pendingFiles.length; i++) {
-    const file = pendingFiles[i];
-    setProgress(Math.round((i / pendingFiles.length) * 100),
-      `Caricamento ${i + 1} di ${pendingFiles.length}...`);
+  let uploaded = 0;
+
+  for (let i = 0; i < filesToUpload.length; i++) {
+    const file = filesToUpload[i];
+    setProgress(0, `Foto ${i + 1} di ${filesToUpload.length}...`);
+
     try {
-      const fileName = `${Date.now()}-${file.name}`;
-      const ref = storage.ref(`${FOLDER}/${fileName}`);
-      const uploadTask = ref.put(file);
+      // 1. Carica su Storage
+      const fileName = Date.now() + "-" + file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const ref = storage.ref(FOLDER + "/" + fileName);
 
       await new Promise((resolve, reject) => {
-        uploadTask.on("state_changed",
+        const task = ref.put(file);
+        task.on("state_changed",
           snap => {
-            const pct = Math.round((snap.bytesTransferred / snap.totalBytes) * 100);
-            setProgress(pct, `Caricamento foto ${i + 1}/${pendingFiles.length} — ${pct}%`);
+            const pct = Math.round(snap.bytesTransferred / snap.totalBytes * 100);
+            setProgress(pct, `Caricamento ${pct}%...`);
           },
-          reject, resolve
+          err => reject(err),
+          () => resolve()
         );
       });
 
-      const downloadURL = await ref.getDownloadURL();
+      // 2. Prendi URL
+      const url = await ref.getDownloadURL();
+
+      // 3. Salva su Firestore
       await db.collection(COL).add({
-        name: file.name,
-        caption: captionText || null,
-        url: downloadURL,
-        storagePath: `${FOLDER}/${fileName}`,
-        ts: firebase.firestore.FieldValue.serverTimestamp()
+        name:        file.name,
+        caption:     captionText || null,
+        url:         url,
+        storagePath: FOLDER + "/" + fileName,
+        ts:          firebase.firestore.FieldValue.serverTimestamp()
       });
+
+      uploaded++;
+
     } catch (err) {
-      console.error("Upload error:", err);
-      toast("❌ Errore: " + (err.message || "riprova"));
+      console.error("Upload fallito:", err);
+      toast("❌ " + (err.message || "Errore upload"), 5000);
     }
   }
 
-  setProgress(100, "Pubblicato! ✅");
-  setTimeout(() => {
-    showProgress(false);
-    resetUpload();
-    toast(`✅ ${pendingFiles.length} foto pubblicata${pendingFiles.length > 1 ? "e" : ""}!`);
-    pendingFiles = [];
-  }, 600);
+  setProgress(100, "Fatto!");
+
+  // Aggiorna gallery manualmente (non aspettare solo onSnapshot)
+  try {
+    const snap = await db.collection(COL).orderBy("ts", "desc").get();
+    photos = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    render();
+  } catch(e) { /* onSnapshot aggiornerà comunque */ }
+
+  // Reset UI
+  resetUpload();
+
+  if (uploaded > 0) {
+    toast("✅ " + uploaded + (uploaded === 1 ? " foto pubblicata!" : " foto pubblicate!"));
+  }
 }
 
-// ═══════════════════════════════════════════════════
-//  ANNULLA — torna al picker
-// ═══════════════════════════════════════════════════
-function resetUpload() {
-  pendingFiles = [];
-  document.getElementById("stepPreview").style.display = "none";
-  document.getElementById("stepPick").style.display = "block";
-  document.getElementById("captionInput").value = "";
-  document.getElementById("btnPublish").disabled = false;
-  document.getElementById("btnPublish").textContent = "🚀 Pubblica";
-  document.getElementById("fileInput").value = "";
-  document.getElementById("cameraInput").value = "";
-  // Libera object URLs
-  document.querySelectorAll(".preview-thumb").forEach(img => URL.revokeObjectURL(img.src));
-}
-
-// ═══════════════════════════════════════════════════
-//  ELIMINA
-//  1. Cancella il file da Firebase Storage
-//  2. Cancella il documento da Firestore
-// ═══════════════════════════════════════════════════
+// ─── ELIMINA ────────────────────────────────────────
 async function confirmDelete(id) {
   if (!confirm("Eliminare questa foto?")) return;
   const photo = photos.find(p => p.id === id);
   if (!photo) return;
   try {
-    // Cancella da Storage (se abbiamo il path)
-    if (photo.storagePath) {
-      await storage.ref(photo.storagePath).delete();
-    }
-    // Cancella da Firestore
+    if (photo.storagePath) await storage.ref(photo.storagePath).delete();
     await db.collection(COL).doc(id).delete();
     toast("🗑️ Foto eliminata");
   } catch (err) {
-    console.error(err);
-    toast("❌ Errore eliminazione");
+    toast("❌ Errore eliminazione: " + err.message);
   }
 }
 
-// ═══════════════════════════════════════════════════
-//  DRAG & DROP
-// ═══════════════════════════════════════════════════
+// ─── FILE INPUT / DRAG DROP ─────────────────────────
 const dz = document.getElementById("dropzone");
 const fi = document.getElementById("fileInput");
-
-dz.addEventListener("dragover", e => {
-  e.preventDefault();
-  dz.classList.add("drag");
-  document.getElementById("dzIcon").textContent = "📂";
-  document.getElementById("dzLabel").textContent = "Lascia le foto qui!";
-});
-dz.addEventListener("dragleave", () => {
-  dz.classList.remove("drag");
-  document.getElementById("dzIcon").textContent = "🖼️";
-  document.getElementById("dzLabel").textContent = "Carica le tue foto";
-});
-dz.addEventListener("drop", e => {
-  e.preventDefault();
-  dz.classList.remove("drag");
-  document.getElementById("dzIcon").textContent = "🖼️";
-  document.getElementById("dzLabel").textContent = "Carica le tue foto";
-  handleFiles(e.dataTransfer.files);
-});
-fi.addEventListener("change", () => { if (fi.files && fi.files.length) handleFiles(fi.files); });
-
-// Input fotocamera dedicato (iOS)
 const ci = document.getElementById("cameraInput");
-ci.addEventListener("change", () => { if (ci.files && ci.files.length) handleFiles(ci.files); });
 
-// ═══════════════════════════════════════════════════
-//  PROGRESSO
-// ═══════════════════════════════════════════════════
+dz.addEventListener("dragover",  e => { e.preventDefault(); dz.classList.add("drag"); });
+dz.addEventListener("dragleave", () => dz.classList.remove("drag"));
+dz.addEventListener("drop", e => {
+  e.preventDefault(); dz.classList.remove("drag");
+  showPreview(e.dataTransfer.files);
+});
+
+fi.addEventListener("change", e => {
+  if (e.target.files && e.target.files.length > 0) showPreview(e.target.files);
+});
+ci.addEventListener("change", e => {
+  if (e.target.files && e.target.files.length > 0) showPreview(e.target.files);
+});
+
+// ─── PROGRESS BAR ───────────────────────────────────
 function showProgress(v) {
   document.getElementById("progressWrap").style.display = v ? "block" : "none";
 }
 function setProgress(p, label) {
-  document.getElementById("progressFill").style.width = p + "%";
-  document.getElementById("progressPct").textContent = p + "%";
+  document.getElementById("progressFill").style.width   = p + "%";
+  document.getElementById("progressPct").textContent    = p + "%";
   if (label) document.getElementById("progressLabel").textContent = label;
 }
 
-// ═══════════════════════════════════════════════════
-//  RENDER  (ricostruisce feed e griglia)
-// ═══════════════════════════════════════════════════
+// ─── VIEW TOGGLE ────────────────────────────────────
+function setView(v) {
+  currentView = v;
+  document.getElementById("feed").classList.toggle("hidden", v !== "feed");
+  document.getElementById("grid").classList.toggle("hidden", v !== "grid");
+  document.getElementById("btnFeed").classList.toggle("active", v === "feed");
+  document.getElementById("btnGrid").classList.toggle("active", v === "grid");
+}
+
+// ─── RENDER ─────────────────────────────────────────
 function timeAgo(ts) {
   if (!ts) return "adesso";
   const d = Date.now() - ts.toMillis();
@@ -843,27 +838,25 @@ function timeAgo(ts) {
   return Math.floor(d / 86400000) + " giorni fa";
 }
 
-function esc(str) {
-  return String(str || "")
-    .replace(/&/g,"&amp;").replace(/</g,"&lt;")
-    .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+function esc(s) {
+  return String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 }
 
 function render() {
-  const pill     = document.getElementById("countPill");
   const empty    = document.getElementById("emptyState");
   const controls = document.getElementById("galleryControls");
   const feedEl   = document.getElementById("feed");
   const gridEl   = document.getElementById("grid");
 
   document.getElementById("photoCount").textContent = photos.length;
-  pill.style.display     = "flex";
+  document.getElementById("countPill").style.display = "flex";
+
   empty.style.display    = photos.length ? "none" : "block";
   controls.style.display = photos.length ? "flex" : "none";
+
   feedEl.classList.toggle("hidden", currentView !== "feed");
   gridEl.classList.toggle("hidden", currentView !== "grid");
 
-  // — FEED —
   feedEl.innerHTML = photos.map(p => `
     <div class="post-card">
       <div class="post-header">
@@ -875,20 +868,18 @@ function render() {
           </div>
         </div>
         <div class="post-actions">
-          <button class="icon-btn" title="Scarica" onclick="dlSingle('${p.id}')">⬇️</button>
-          <button class="icon-btn del" title="Elimina" onclick="confirmDelete('${p.id}')">🗑️</button>
+          <button class="icon-btn" onclick="dlSingle('${p.id}')">⬇️</button>
+          <button class="icon-btn del" onclick="confirmDelete('${p.id}')">🗑️</button>
         </div>
       </div>
-      <img class="post-img" src="${esc(p.url)}" alt="" loading="lazy"
-           onclick="openLightbox('${p.id}')" />
-      <div class="post-filename">${esc(p.name)}</div>
+      <img class="post-img" src="${esc(p.url)}" loading="lazy" onclick="openLightbox('${p.id}')" />
+      <div class="post-filename">📎 ${esc(p.name)}</div>
     </div>
   `).join("");
 
-  // — GRID —
   gridEl.innerHTML = photos.map(p => `
     <div class="grid-card" onclick="openLightbox('${p.id}')">
-      <img src="${esc(p.url)}" alt="" loading="lazy" />
+      <img src="${esc(p.url)}" loading="lazy" />
       <div class="grid-overlay">
         ${p.caption ? `<div class="grid-caption">${esc(p.caption)}</div>` : ""}
       </div>
@@ -900,22 +891,7 @@ function render() {
   `).join("");
 }
 
-// ═══════════════════════════════════════════════════
-//  VISTA TOGGLE
-// ═══════════════════════════════════════════════════
-function setView(v) {
-  currentView = v;
-  document.getElementById("feed").classList.toggle("hidden", v !== "feed");
-  document.getElementById("grid").classList.toggle("hidden", v !== "grid");
-  document.getElementById("btnFeed").classList.toggle("active", v === "feed");
-  document.getElementById("btnGrid").classList.toggle("active", v === "grid");
-}
-
-// ═══════════════════════════════════════════════════
-//  DOWNLOAD SINGOLO
-//  Usa fetch per scaricare il file come blob,
-//  poi lo forza come download (evita apertura nel browser)
-// ═══════════════════════════════════════════════════
+// ─── DOWNLOAD SINGOLO ───────────────────────────────
 async function dlSingle(id) {
   const p = photos.find(x => x.id === id);
   if (!p) return;
@@ -928,50 +904,41 @@ async function dlSingle(id) {
     a.click();
     URL.revokeObjectURL(a.href);
   } catch {
-    // fallback: apri in nuova tab
     window.open(p.url, "_blank");
   }
 }
 
-// ═══════════════════════════════════════════════════
-//  DOWNLOAD TUTTO (ZIP)
-//  Scarica ogni immagine dall'URL Firebase Storage,
-//  la impacchetta in uno ZIP con JSZip
-// ═══════════════════════════════════════════════════
+// ─── DOWNLOAD TUTTO ─────────────────────────────────
 async function dlAll() {
   if (!photos.length) return;
   document.getElementById("btnZip").disabled = true;
-  toast("📦 Creando ZIP...");
+  toast("📦 Creando ZIP...", 10000);
   try {
     const zip = new JSZip();
     for (const p of photos) {
       const resp = await fetch(p.url);
       const blob = await resp.blob();
       const ext  = blob.type.split("/")[1] || "jpg";
-      const name = p.name.includes(".") ? p.name : `${p.name}.${ext}`;
-      zip.file(name, blob);
+      zip.file(p.name.includes(".") ? p.name : p.name + "." + ext, blob);
     }
     const blob = await zip.generateAsync({ type: "blob" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = "foto_3T_Galileo.zip";
     a.click();
-    toast(`📥 ${photos.length} foto scaricate!`);
+    toast("📥 " + photos.length + " foto scaricate!");
   } catch (err) {
-    console.error(err);
-    toast("❌ Errore ZIP");
+    toast("❌ Errore ZIP: " + err.message);
   }
   document.getElementById("btnZip").disabled = false;
 }
 
-// ═══════════════════════════════════════════════════
-//  LIGHTBOX
-// ═══════════════════════════════════════════════════
+// ─── LIGHTBOX ───────────────────────────────────────
 function openLightbox(id) {
   const p = photos.find(x => x.id === id);
   if (!p) return;
   document.getElementById("lbImg").src = p.url;
-  document.getElementById("lbCaption").textContent = p.caption ? `"${p.caption}"` : "";
+  document.getElementById("lbCaption").textContent = p.caption ? '"' + p.caption + '"' : "";
   document.getElementById("lightbox").classList.add("open");
   document.body.style.overflow = "hidden";
 }
@@ -983,20 +950,8 @@ function closeLightbox(e) {
   document.body.style.overflow = "";
 }
 document.addEventListener("keydown", e => {
-  if (e.key === "Escape") document.getElementById("lightbox").classList.remove("open");
+  if (e.key === "Escape") closeLightbox({ target: document.getElementById("lightbox") });
 });
-
-// ═══════════════════════════════════════════════════
-//  TOAST
-// ═══════════════════════════════════════════════════
-let toastTimer;
-function toast(msg) {
-  const el = document.getElementById("toast");
-  el.textContent = msg;
-  el.style.display = "block";
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { el.style.display = "none"; }, 2800);
-}
 </script>
 
 </body>
